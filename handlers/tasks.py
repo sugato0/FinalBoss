@@ -5,7 +5,7 @@ from keyboards.inline import start_keyboard
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State,StatesGroup
-
+from database import add_task, get_tasks
 
 class AddTask(StatesGroup):
     waiting_title=State()
@@ -22,3 +22,4 @@ async def add_task_handler(callback: CallbackQuery,state: FSMContext):
 async def waiting_title_handler(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(f"Задача добавлена: {message.text}")
+
