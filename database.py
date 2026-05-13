@@ -1,20 +1,27 @@
 from datetime import date  # работа с датами
-
-from sqlalchemy import Integer, String, Date, Boolean, select  # типы и select (новый стиль запросов)
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker  # асинхронный движок и сессии
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column  # база ORM и описание колонок
-
-
-engine = create_async_engine("sqlite+aiosqlite:///tasks.db")  # асинхронное подключение к sqlite через aiosqlite
-Session = async_sessionmaker(bind=engine, expire_on_commit=False)  # фабрика асинхронных сессий
+from sqlalchemy import Integer, String, Date, Boolean, select  # типы данных и инструмент для запросов
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker  # подключение и работа с базой
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column  # описание таблиц через Python-классы
 
 
-class Base(DeclarativeBase):  # базовый класс от которого наследуются таблицы (Не обращай внимания)
+# Подключение к файлу базы данных tasks.db.
+# В этом файле будут храниться все задачи.
+engine = create_async_engine("sqlite+aiosqlite:///tasks.db")
+
+# Session помогает открывать короткое "общение" с базой:
+# записать задачу, получить список, изменить или удалить запись.
+Session = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+
+class Base(DeclarativeBase):
+    # Служебный класс. Он нужен, чтобы Python-классы можно было связать с таблицами.
     pass
 
 
 class DayTask(Base):
-    __tablename__ = "day_tasks"  # название таблицы
+    # Описание одной задачи: какие поля будут храниться в таблице day_tasks.
+    __tablename__ = "day_tasks"
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # уникальный id
     title: Mapped[str] = mapped_column(String, nullable=False)  # название задачи обязательно
     description: Mapped[str | None] = mapped_column(String)  # описание может быть пустым
@@ -23,42 +30,54 @@ class DayTask(Base):
 
 
 async def create_tables() -> None:
-    async with engine.begin() as conn:  # открываем соединение
-        await conn.run_sync(Base.metadata.create_all)  # создаем таблицы если их нет
+    # При старте программы проверяем, создана ли таблица для задач.
+    # Если таблицы еще нет, создаем ее автоматически.
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-#вот тут добавление задачи
+
+# Добавляет новую задачу в базу данных и возвращает ее номер.
 async def add_task(
     title: str,
     description: str | None = None,
     task_date: date | None = None
 ) -> int:
-    async with Session() as session:  # открываем асинхронную сессию
+    async with Session() as session:
+        # Создаем новую задачу в памяти программы.
         task = DayTask(
             title=title,
             description=description,
-            task_date=task_date or date.today()  # если дата не передана ставим сегодня
+            task_date=task_date or date.today()  # если дата не передана, ставим сегодня
         )
 
-        session.add(task)  # добавляем объект в бд
-        await session.commit()  # сохраняем изменения
+        # Добавляем задачу в базу и сохраняем изменения.
+        session.add(task)
+        await session.commit()
 
-        return task.id  # возвращаем id задачи
+        return task.id
 
-#вот тут получение задачи
+
+# Получает список задач из базы.
+# Если указана дата, возвращает задачи только за этот день.
 async def get_tasks(task_date: date | None = None) -> list[DayTask]:
-    async with Session() as session:  # открываем сессию
-        query = select(DayTask)  # формируем запрос
+    async with Session() as session:
+        # Готовим запрос: "выбрать задачи".
+        query = select(DayTask)
 
         if task_date is not None:
-            query = query.where(DayTask.task_date == task_date)  # фильтр по дате
+            # Если нужна конкретная дата, добавляем фильтр по дате.
+            query = query.where(DayTask.task_date == task_date)
 
-        query = query.order_by(DayTask.id)  # сортировка
+        # Сортируем задачи по их номеру, чтобы они шли в понятном порядке.
+        query = query.order_by(DayTask.id)
 
-        result = await session.execute(query)  # выполняем запрос
+        result = await session.execute(query)
 
-        return list(result.scalars().all())  # достаем объекты из результата
+        return list(result.scalars().all())
 
-#вот тут обновление задачи по id
+
+# Изменяет задачу по ее номеру.
+# Можно поменять название, описание, дату или статус выполнения.
 async def update_task(
     task_id: int,
     title: str | None = None,
@@ -66,37 +85,45 @@ async def update_task(
     task_date: date | None = None,
     is_done: bool | None = None
 ) -> bool:
-    async with Session() as session:  # открываем сессию
-        task = await session.get(DayTask, task_id)  # ищем задачу по id
+    async with Session() as session:
+        # Ищем задачу по номеру.
+        task = await session.get(DayTask, task_id)
 
         if task is None:
-            return False  # если не нашли
+            # Если задачи с таким номером нет, сообщаем об этом вызывающему коду.
+            return False
 
+        # Ниже меняем только те поля, для которых пришло новое значение.
         if title is not None:
-            task.title = title  # обновляем название
+            task.title = title
 
         if description is not None:
-            task.description = description  # обновляем описание
+            task.description = description
 
         if task_date is not None:
-            task.task_date = task_date  # обновляем дату
+            task.task_date = task_date
 
         if is_done is not None:
-            task.is_done = is_done  # обновляем статус
+            task.is_done = is_done
 
-        await session.commit()  # сохраняем изменения
+        await session.commit()
 
         return True
 
-#вот тут удаление задачи по id
+
+# Удаляет задачу по ее номеру.
+# Возвращает True, если задача нашлась и была удалена.
 async def delete_task(task_id: int) -> bool:
-    async with Session() as session:  # открываем сессию
-        task = await session.get(DayTask, task_id)  # ищем задачу
+    async with Session() as session:
+        # Сначала ищем задачу, которую нужно удалить.
+        task = await session.get(DayTask, task_id)
 
         if task is None:
-            return False  # если нет такой задачи
+            # Если такой задачи нет, удалять нечего.
+            return False
 
-        await session.delete(task)  # удаляем объект
-        await session.commit()  # фиксируем удаление
+        # Удаляем найденную задачу и сохраняем изменения.
+        await session.delete(task)
+        await session.commit()
 
         return True

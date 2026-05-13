@@ -1,3 +1,4 @@
+import logging
 from aiogram import Bot, Dispatcher
 from asyncio import create_task, run
 from configs.config import BOT_TOKEN
@@ -5,17 +6,36 @@ from handlers.start import router as start_router
 from handlers.tasks import router as tasks_router
 from database import create_tables
 from background import background_loop
+from app_logging import setup_logging
+
+# Объект для записей в журнал: сюда бот будет писать, что он запустился и что база готова.
+logger = logging.getLogger(__name__)
+
 
 async def main():
-    await create_tables()
+    # Включаем понятный формат сообщений в консоли: время, уровень важности и текст.
+    setup_logging()
 
+    # Проверяем, есть ли нужные таблицы в базе. Если их нет, программа создаст их сама.
+    await create_tables()
+    logger.info("Database tables are ready")
+
+    # Создаем самого Telegram-бота и помощника, который будет разбирать сообщения пользователей.
     bot=Bot(token=BOT_TOKEN)
     dp=Dispatcher()
 
+    # Подключаем файлы с реакциями бота: отдельно стартовое меню и отдельно работу с задачами.
     dp.include_router(start_router)
     dp.include_router(tasks_router)
 
-    print("[LOG] бот запущен")
+    logger.info("Bot started")
+
+    # Запускаем дополнительный цикл для будущих фоновых действий, например напоминаний.
     create_task(background_loop())
+    logger.info("Background loop started")
+
+    # Бот начинает постоянно ждать новые сообщения и нажатия кнопок от пользователей.
     await dp.start_polling(bot)
+
+
 run(main())
