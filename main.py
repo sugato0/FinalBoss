@@ -5,7 +5,6 @@ from configs.config import BOT_TOKEN
 from handlers.start import router as start_router
 from handlers.tasks import router as tasks_router
 from database import create_tables
-from background import background_loop
 from app_logging import setup_logging
 
 # Объект для записей в журнал: сюда бот будет писать, что он запустился и что база готова.
@@ -30,12 +29,8 @@ async def main():
 
     logger.info("Bot started")
 
-    # Запускаем дополнительный цикл для будущих фоновых действий, например напоминаний.
-    create_task(background_loop())
-    logger.info("Background loop started")
-
     # Бот начинает постоянно ждать новые сообщения и нажатия кнопок от пользователей.
     await dp.start_polling(bot)
 
-
+# Запуск бота
 run(main())
