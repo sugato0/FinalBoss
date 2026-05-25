@@ -3,3 +3,8 @@ START_BTN_1 = "➕ Добавить задачу"
 START_BTN_2 = "📋 Список задач"
 START_BTN_3 = "🗑 Удалить задачу"
 START_BTN_4 = "✅ Изменить статус"
+
+
+async def notification(task_text: str):
+    return f"""Напоминание о задаче: {task_text}"""
+

@@ -23,6 +23,7 @@ class DayTask(Base):
     __tablename__ = "day_tasks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # уникальный id
+    user_id: Mapped[str] = mapped_column(String, default=None)
     title: Mapped[str] = mapped_column(String, nullable=False)  # название задачи обязательно
     description: Mapped[str | None] = mapped_column(String)  # описание может быть пустым
     task_date: Mapped[date] = mapped_column(Date, nullable=False)  # дата задачи
@@ -39,6 +40,7 @@ async def create_tables() -> None:
 # Добавляет новую задачу в базу данных и возвращает ее номер.
 async def add_task(
     title: str,
+    user_id: str,
     description: str | None = None,
     task_date: date | None = None
 ) -> int:
@@ -46,6 +48,7 @@ async def add_task(
         # Создаем новую задачу в памяти программы.
         task = DayTask(
             title=title,
+            user_id = user_id,
             description=description,
             task_date=task_date or date.today()  # если дата не передана, ставим сегодня
         )
@@ -127,3 +130,4 @@ async def delete_task(task_id: int) -> bool:
         await session.commit()
 
         return True
+

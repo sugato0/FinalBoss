@@ -112,7 +112,7 @@ async def waiting_title_handler(message: Message, state: FSMContext):
         return
 
     # Записываем задачу в базу данных.
-    task_id = await add_task(title=title)
+    task_id = await add_task(title=title, user_id=message.from_user.id)
 
     # Сбрасываем режим ожидания названия: бот снова работает в обычном режиме.
     await state.clear()
